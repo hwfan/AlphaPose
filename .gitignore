@@ -115,3 +115,5 @@ tmp/
 exp/json
 tmp_*/
 example/res/
+examples/demo-pose-pkl/
+pretrained_models/

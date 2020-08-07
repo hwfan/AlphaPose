@@ -14,7 +14,7 @@ from detector.apis import get_detector
 from alphapose.models import builder
 from alphapose.utils.config import update_config
 from alphapose.utils.detector import DetectionLoader
-from alphapose.utils.pPose_nms import write_json
+from alphapose.utils.pPose_nms import write_json, write_pickle
 from alphapose.utils.transforms import flip, flip_heatmap
 from alphapose.utils.vis import getTime
 from alphapose.utils.webcam_detector import WebCamDetectionLoader
@@ -91,9 +91,11 @@ args.posebatch = args.posebatch * len(args.gpus)
 args.tracking = (args.detector == 'tracker')
 
 if not args.sp:
-    torch.multiprocessing.set_start_method('forkserver', force=True)
-    torch.multiprocessing.set_sharing_strategy('file_system')
+    torch.multiprocessing.set_start_method('spawn', force=True)
+    # torch.multiprocessing.set_sharing_strategy('file_system')
 
+def check_img(filename):
+    return True if filename.lower().endswith(('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')) else False
 
 def check_input():
     # for wecam
@@ -126,9 +128,13 @@ def check_input():
         if len(inputlist):
             im_names = open(inputlist, 'r').readlines()
         elif len(inputpath) and inputpath != '/':
+            im_names = []
             for root, dirs, files in os.walk(inputpath):
-                im_names = files
+                for each_file in files:
+                    if check_img(each_file):
+                        im_names.append(os.path.join(root, each_file))
             im_names = natsort.natsorted(im_names)
+            print(im_names)
         elif len(inputimg):
             im_names = [inputimg]
 
@@ -219,7 +225,7 @@ if __name__ == "__main__":
                 if orig_img is None:
                     break
                 if boxes is None or boxes.nelement() == 0:
-                    writer.save(None, None, None, None, None, orig_img, os.path.basename(im_name))
+                    writer.save(None, None, None, None, None, orig_img, im_name) # os.path.basename(im_name))
                     continue
                 if args.profile:
                     ckpt_time, det_time = getTime(start_time)
@@ -246,7 +252,7 @@ if __name__ == "__main__":
                     ckpt_time, pose_time = getTime(ckpt_time)
                     runtime_profile['pt'].append(pose_time)
                 hm = hm.cpu()
-                writer.save(boxes, scores, ids, hm, cropped_boxes, orig_img, os.path.basename(im_name))
+                writer.save(boxes, scores, ids, hm, cropped_boxes, orig_img, im_name) # os.path.basename(im_name))
 
                 if args.profile:
                     ckpt_time, post_time = getTime(ckpt_time)
@@ -285,5 +291,5 @@ if __name__ == "__main__":
             writer.clear_queues()
             # det_loader.clear_queues()
     final_result = writer.results()
-    write_json(final_result, args.outputpath, form=args.format, for_eval=args.eval)
-    print("Results have been written to json.")
+    write_pickle(final_result, args.outputpath, form=args.format, for_eval=args.eval)
+    print("Results have been written to pickle file.")
