@@ -9,7 +9,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 import natsort
-
+import os.path as osp
+sys.path.append(osp.abspath(osp.join(osp.dirname(__file__),'..')))
 from detector.apis import get_detector
 from alphapose.models import builder
 from alphapose.utils.config import update_config
